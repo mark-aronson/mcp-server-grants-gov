@@ -6,6 +6,8 @@ apps:
       workspace_path: "${bundle.targets.${bundle.target}.workspace.root_path}/mcp-server"
       app_spec_path: "app.yaml"
       libraries:
-        - whl: ../dist/grants_gov_mcp-*.whl
+        # point at the built wheel (path is relative to the repo root;
+        # this file lives in bundle/resources so ../dist -> dist/)
+        - whl: "../dist/*.whl"
       env:
         APP_ENV: "${bundle.targets.${bundle.target}.variables.ENV}"
