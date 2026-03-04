@@ -18,6 +18,24 @@ class ResponseFormat(str, Enum):
     JSON = "json"
 
 
+class FetchOpportunityInput(BaseModel):
+    """Input model for the grants.gov fetchOpportunity endpoint."""
+    model_config = ConfigDict(
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    opportunity_id: int = Field(
+        ...,
+        description="Numeric ID of the grant opportunity to retrieve (e.g., 289999). Obtain IDs from grants_gov_search_opportunities results.",
+        gt=0,
+    )
+    response_format: ResponseFormat = Field(
+        default=ResponseFormat.MARKDOWN,
+        description="Output format: 'markdown' for human-readable or 'json' for the raw API data object.",
+    )
+
+
 class SearchGrantsInput(BaseModel):
     """Input model for the grants.gov search2 endpoint."""
     model_config = ConfigDict(

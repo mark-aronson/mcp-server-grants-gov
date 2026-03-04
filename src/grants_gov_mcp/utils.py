@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 
 SEARCH2_URL = "https://api.grants.gov/v1/api/search2"
+FETCH_OPPORTUNITY_URL = "https://api.grants.gov/v1/api/fetchOpportunity"
 REQUEST_TIMEOUT = 30.0
 
 
@@ -17,6 +18,93 @@ async def make_search2_request(payload: dict[str, Any]) -> dict[str, Any]:
         )
         response.raise_for_status()
         return response.json()
+
+
+async def make_fetch_opportunity_request(opportunity_id: int) -> dict[str, Any]:
+    """POST to the grants.gov fetchOpportunity endpoint and return parsed JSON."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            FETCH_OPPORTUNITY_URL,
+            json={"opportunityId": opportunity_id},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+def format_opportunity_detail_markdown(data: dict[str, Any]) -> str:
+    """Format a full fetchOpportunity data object into Markdown."""
+    title = data.get("opportunityTitle", "Untitled")
+    number = data.get("opportunityNumber", "N/A")
+    opp_id = data.get("id", "N/A")
+    agency_code = data.get("owningAgencyCode", "N/A")
+
+    synopsis: dict[str, Any] = data.get("synopsis", {})
+    agency_name = synopsis.get("agencyName", agency_code)
+    posting_date = _format_date(synopsis.get("postingDate"))
+    response_date = _format_date(synopsis.get("responseDate") or synopsis.get("archiveDate"))
+    response_date_label = "Response Date" if synopsis.get("responseDate") else "Archive Date"
+    cost_sharing = synopsis.get("costSharingOrMatchingInd", False)
+    award_ceiling = synopsis.get("awardCeiling") or synopsis.get("awardCeilingFormatted", "N/A")
+    award_floor = synopsis.get("awardFloor") or synopsis.get("awardFloorFormatted", "N/A")
+    expected_awards = synopsis.get("numberOfAwards", "N/A")
+    description = synopsis.get("synopsisDesc", "")
+
+    # Collect list fields
+    applicant_types: list[str] = [
+        at.get("description", at.get("applicantType", ""))
+        for at in synopsis.get("applicantTypes", [])
+    ]
+    funding_instruments: list[str] = [
+        fi.get("description", fi.get("fundingInstrumentType", ""))
+        for fi in synopsis.get("fundingInstruments", [])
+    ]
+    activity_categories: list[str] = [
+        ac.get("description", ac.get("fundingActivityCategory", ""))
+        for ac in synopsis.get("fundingActivityCategories", [])
+    ]
+    alns: list[str] = [
+        f"{a.get('alnNumber', '')} — {a.get('programTitle', '')}".strip(" —")
+        for a in data.get("alns", [])
+    ]
+    attachments: list[str] = [
+        f.get("folderName", "") or f.get("title", "")
+        for folder in data.get("synopsisAttachmentFolders", [])
+        for f in ([folder] if isinstance(folder, dict) else [])
+        if f.get("folderName") or f.get("title")
+    ]
+
+    lines = [
+        f"## {title}",
+        f"",
+        f"| Field | Value |",
+        f"|-------|-------|",
+        f"| **Opportunity #** | {number} |",
+        f"| **ID** | {opp_id} |",
+        f"| **Agency** | {agency_name} ({agency_code}) |",
+        f"| **Posted** | {posting_date} |",
+        f"| {response_date_label} | {response_date} |",
+        f"| **Award Ceiling** | {award_ceiling} |",
+        f"| **Award Floor** | {award_floor} |",
+        f"| **Expected Awards** | {expected_awards} |",
+        f"| **Cost Sharing** | {'Yes' if cost_sharing else 'No'} |",
+        f"",
+    ]
+
+    if applicant_types:
+        lines += ["**Eligible Applicants:**", ""] + [f"- {t}" for t in applicant_types if t] + [""]
+    if funding_instruments:
+        lines += ["**Funding Instruments:**", ""] + [f"- {i}" for i in funding_instruments if i] + [""]
+    if activity_categories:
+        lines += ["**Activity Categories:**", ""] + [f"- {c}" for c in activity_categories if c] + [""]
+    if alns:
+        lines += ["**Assistance Listing Numbers (ALN):**", ""] + [f"- {a}" for a in alns if a] + [""]
+    if description:
+        lines += ["**Description:**", "", description.strip(), ""]
+    if attachments:
+        lines += ["**Attachments:**", ""] + [f"- {a}" for a in attachments if a] + [""]
+
+    return "\n".join(lines)
 
 
 def handle_api_error(e: Exception) -> str:

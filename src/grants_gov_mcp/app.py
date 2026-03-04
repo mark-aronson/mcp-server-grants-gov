@@ -9,9 +9,9 @@ import os
 
 from fastmcp import FastMCP
 
-from .prompts import register_prompts
-from .routes import register_routes
-from .tools import register_tools
+from grants_gov_mcp.prompts import register_prompts
+from grants_gov_mcp.routes import register_routes
+from grants_gov_mcp.tools import register_tools
 
 mcp = FastMCP("grants_gov_mcp")
 

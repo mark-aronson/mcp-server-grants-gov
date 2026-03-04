@@ -3,11 +3,13 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from .models import ResponseFormat, SearchGrantsInput
+from .models import FetchOpportunityInput, ResponseFormat, SearchGrantsInput
 from .utils import (
     build_search_payload,
+    format_opportunity_detail_markdown,
     format_search_results_markdown,
     handle_api_error,
+    make_fetch_opportunity_request,
     make_search2_request,
 )
 
@@ -147,4 +149,70 @@ def register_tools(mcp: FastMCP) -> None:
             return format_search_results_markdown(data, params.rows, params.start_record)
 
         except Exception as e:
+            return handle_api_error(e)
+
+    @mcp.tool(
+        name="grants_gov_fetch_opportunity",
+        annotations={
+            "title": "Fetch Grant Opportunity Details",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )
+    async def grants_gov_fetch_opportunity(params: FetchOpportunityInput) -> str:
+        """Fetch full details for a single grant opportunity by its numeric ID.
+
+        Retrieves comprehensive information about a specific Grants.gov opportunity
+        including synopsis, eligibility, award amounts, contact info, funding
+        instruments, activity categories, ALNs, and attachments.
+
+        Use grants_gov_search_opportunities first to find opportunity IDs.
+        No authentication is required.
+
+        Args:
+            params (FetchOpportunityInput): Input parameters containing:
+                - opportunity_id (int): Numeric opportunity ID (e.g., 289999)
+                - response_format (ResponseFormat): 'markdown' or 'json' (default: 'markdown')
+
+        Returns:
+            str: Opportunity details in the requested format.
+
+            Markdown format includes:
+            - Summary table: number, agency, posted/response dates, award ceiling/floor,
+              expected awards, cost sharing requirement
+            - Eligible applicant types
+            - Funding instruments
+            - Activity categories
+            - Assistance Listing Numbers (ALN)
+            - Description text
+            - Attachment folder names
+
+            JSON format returns the raw `data` object from the API with all fields.
+
+        Examples:
+            - Get details for opportunity 289999: opportunity_id=289999
+            - Get machine-readable data: opportunity_id=289999, response_format='json'
+
+        Error Handling:
+            - Returns "Error: Opportunity not found..." if the ID does not exist
+            - Returns "Error: Request timed out..." on slow responses
+        """
+        try:
+            response = await make_fetch_opportunity_request(params.opportunity_id)
+            data: dict[str, Any] = response.get("data", response)
+
+            errors = data.get("errorMessages", [])
+            if errors or not data.get("opportunityTitle"):
+                return f"Error: Opportunity with ID {params.opportunity_id} was not found."
+
+            if params.response_format == ResponseFormat.JSON:
+                return json.dumps(data, indent=2)
+
+            return format_opportunity_detail_markdown(data)
+
+        except Exception as e:
+            if isinstance(e, Exception) and "404" in str(e):
+                return f"Error: Opportunity with ID {params.opportunity_id} was not found."
             return handle_api_error(e)
