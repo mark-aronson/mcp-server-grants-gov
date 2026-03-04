@@ -1,0 +1,57 @@
+name: Build & Deploy Databricks Bundle
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  BUNDLE_TARGET: dev
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-mcp-server
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build wheel
+        # this creates dist/*.whl
+        run: python -m build
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Ensure required secrets exist
+        run: |
+          if [ -z "${{ secrets.DATABRICKS_HOST }}" ] || [ -z "${{ secrets.DATABRICKS_TOKEN }}" ]; then
+            echo "DATABRICKS_HOST and DATABRICKS_TOKEN must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Configure Databricks auth (PAT)
+        run: |
+          echo "DATABRICKS_HOST=${{ secrets.DATABRICKS_HOST }}" >> $GITHUB_ENV
+          echo "DATABRICKS_TOKEN=${{ secrets.DATABRICKS_TOKEN }}" >> $GITHUB_ENV
+
+      # If you use OIDC, skip the PAT step and configure workload identity on Databricks.
+
+      - name: Validate bundle
+        run: databricks bundle validate
+        working-directory: .
+
+      - name: Deploy bundle
+        run: databricks bundle deploy -t ${{ env.BUNDLE_TARGET }} --auto-approve
+        working-directory: .

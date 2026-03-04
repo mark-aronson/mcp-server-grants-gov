@@ -6,3 +6,11 @@ __pycache__/
 
 # ignore claude 
 .claude/
+
+# ignore build artifacts
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+.databricks/

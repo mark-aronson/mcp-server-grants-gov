@@ -1,0 +1,29 @@
+bundle:
+  name: mcp-server-grants-gov
+  databricks_cli_version: ">=0.218.0"
+
+# Files/globs included in the bundle package (paths are relative to the bundle file)
+include:
+  - 'bundle/resources/*.yml'
+  - 'app.yaml'
+  - 'dist/*.whl'        # built wheel output (CI will put wheel here)
+  - 'src/**'            # include source if you want it copied to workspace
+  - 'pyproject.toml'
+
+# Artifacts may be declared in the separate artifacts.yml
+artifacts:
+  default:
+    type: whl
+    path: .                       # relative to databricks.yml (repo root)
+    build: python -m build --no-isolation
+    output: dist/*.whl
+    dynamic_version: false
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: ${env.DATABRICKS_HOST}
+      root_path: /Workspace/mcp-tiger-team/mcp-server-repos
+    variables:
+      ENV: dev

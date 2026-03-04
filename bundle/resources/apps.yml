@@ -1,0 +1,11 @@
+apps:
+  grants_gov_mcp_server:
+    name: mcp-server-grants-gov
+    type: app
+    app:
+      workspace_path: "${bundle.targets.${bundle.target}.workspace.root_path}/mcp-server"
+      app_spec_path: "app.yaml"
+      libraries:
+        - whl: ../dist/grants_gov_mcp-*.whl
+      env:
+        APP_ENV: "${bundle.targets.${bundle.target}.variables.ENV}"
