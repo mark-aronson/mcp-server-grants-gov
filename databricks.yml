@@ -17,16 +17,16 @@ sync:
     - '.git/**'
 
 # resource definitions embedded here to avoid include ambiguities:
-apps:
-  grants_gov_mcp_server:
-    name: mcp-server-grants-gov
-    app:
-      workspace_path: "${bundle.targets.${bundle.target}.workspace.root_path}/mcp-server"
-      app_spec_path: "app.yaml"
-      libraries:
-        - whl: "../dist/*.whl"
-      env:
-        APP_ENV: "${bundle.targets.${bundle.target}.variables.ENV}"
+# apps:
+#   grants_gov_mcp_server:
+#     name: mcp-server-grants-gov
+#     app:
+#       workspace_path: "${bundle.targets.${bundle.target}.workspace.root_path}/mcp-server"
+#       app_spec_path: "app.yaml"
+#       libraries:
+#         - whl: "../dist/*.whl"
+#       env:
+#         APP_ENV: "${bundle.targets.${bundle.target}.variables.ENV}"
 
 artifacts:
   default:
@@ -41,6 +41,6 @@ targets:
   dev:
     default: true
     workspace:
-      root_path: /Workspace/mcp-tiger-team/mcp-server-repos
+      root_path: /Workspace/mcp-tiger-team/mcp-server-repos/mcp-server-grants-gov
     variables:
       ENV: dev
