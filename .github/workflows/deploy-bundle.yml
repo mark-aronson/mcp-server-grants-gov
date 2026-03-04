@@ -51,7 +51,15 @@ jobs:
       - name: Validate bundle
         run: databricks bundle validate
         working-directory: .
+        env:
+          # optional: explicitly set the bundle environment variable (Databricks examples use this)
+          DATABRICKS_BUNDLE_ENV: ${{ env.BUNDLE_TARGET }}
+          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
 
       - name: Deploy bundle
         run: databricks bundle deploy -t ${{ env.BUNDLE_TARGET }} --auto-approve
         working-directory: .
+        env:
+          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
