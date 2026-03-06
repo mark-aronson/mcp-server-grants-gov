@@ -1,7 +1,78 @@
 from enum import Enum
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict
+
+
+class Agency(str, Enum):
+    """Top-level agency codes for filtering grant searches."""
+    AMERICORPS = "AC"
+    USDA = "USDA"
+    DOC = "DOC"
+    DOD = "DOD"
+    ED = "ED"
+    DOE = "DOE"
+    DOE_OFFICE_OF_SCIENCE = "PAMS"
+    HHS = "HHS"
+    DHS = "DHS"
+    HUD = "HUD"
+    DOJ = "USDOJ"
+    DOL = "DOL"
+    DOS = "DOS"
+    DOI = "DOI"
+    TREASURY = "USDOT"
+    DOT = "DOT"
+    VA = "VA"
+    EPA = "EPA"
+    IMLS = "IMLS"
+    MCC = "MCC"
+    NASA = "NASA"
+    NEA = "NEA"
+    NEH = "NEH"
+    ONDCP = "ONDCP"
+    NSF = "NSF"
+
+
+# Mapping from top-level agency code to its sub-agency codes.
+# Used in to_payload() to expand parent codes to all sub-agencies.
+AGENCY_SUBAGENCIES: dict[str, list[str]] = {
+    "USDA": ["USDA-FS", "USDA-NIFA", "USDA-RBCS", "USDA-RHS", "USDA-RUS"],
+    "DOC": ["DOC", "DOC-DOCNOAAERA", "DOC-EDA", "DOC-NIST"],
+    "DOD": [
+        "DOD", "DOD-AF347CS", "DOD-AFRL", "DOD-AFRL-AFRLDET8", "DOD-AFRL-RW",
+        "DOD-AFOSR", "DOD-AMC", "DOD-AMC-ACCAPGD", "DOD-AMC-ACCAPGN", "DOD-AMC-ACCRI",
+        "DOD-AMRAA", "DOD-COE-ERDC", "DOD-DARPA-BTO", "DOD-DARPA-DSO", "DOD-DARPA-I2O",
+        "DOD-DARPA-TTO", "DOD-DTRA", "DOD-NGIA", "DOD-OEA", "DOD-ONR", "DOD-ONR-AIR",
+        "DOD-ONR-NRL", "DOD-ONR-SEA-CRANE", "DOD-ONR-SEA-N00178", "DOD-ONR-SEA-NSWFCRD",
+        "DOD-ONR-SUP", "DOD-USAFA", "DOD-WHS",
+    ],
+    "DOE": ["DOE-ARPAE", "DOE-GFO", "DOE-01", "DOE-ID", "DOE-NETL", "DOE-NNSA"],
+    "PAMS": ["PAMS-SC"],
+    "HHS": [
+        "HHS-ACF-CB", "HHS-ACF-OFVPS", "HHS-ACL", "HHS-AHRQ", "HHS-ASPR",
+        "HHS-CDC-GHC", "HHS-CDC-HHSCDCERA", "HHS-CDC-NCBDDD", "HHS-CDC-NCEZID",
+        "HHS-CDC-NCIPC", "HHS-CDC-NCIRD", "HHS-CDC-OPHPR", "HHS-CMS", "HHS-FDA",
+        "HHS-HRSA", "HHS-IHS", "HHS-NIH11", "HHS-OPHS", "HHS-OS-ASPR",
+        "HHS-OS-ONC", "HHS-SAMHS-SAMHSA",
+    ],
+    "DHS": ["DHS-USCG"],
+    "USDOJ": ["USDOJ-BOP-NIC", "USDOJ-OJP-BJA", "USDOJ-OJP-OJJDP", "USDOJ-OJP-OVC"],
+    "DOL": ["DOL-ETA", "DOL-ETA-VETS", "DOL-ILAB", "DOL-VETS"],
+    "DOS": [
+        "DOS-ALB", "DOS-AGO", "DOS-ARG", "DOS-AUS", "DOS-AZE", "DOS-BGD", "DOS-BEN",
+        "DOS-CHN", "DOS-COD", "DOS-CPV", "DOS-CYP", "DOS-DJI", "DOS-DOM", "DOS-DRL",
+        "DOS-ECA", "DOS-EGY", "DOS-ESP", "DOS-EUR", "DOS-GAB", "DOS-GEO", "DOS-GFS",
+        "DOS-GHSD", "DOS-GRC", "DOS-GTIP", "DOS-IND", "DOS-IDN", "DOS-INL", "DOS-ISN",
+        "DOS-ITA", "DOS-JPN", "DOS-KAZ", "DOS-LVA", "DOS-MEX", "DOS-MKD", "DOS-MOZ",
+        "DOS-MUS", "DOS-NLD", "DOS-PHL", "DOS-PRM", "DOS-SLE", "DOS-SRB", "DOS-TUN",
+        "DOS-USEU", "DOS-USUN", "DOS-VEN", "DOS-ZAF", "DOS-ZWE",
+    ],
+    "DOI": ["DOI-BIA", "DOI-BLM", "DOI-BOR", "DOI-FWS", "DOI-FWS-REG4", "DOI-IBC", "DOI-NPS", "DOI-USGS1"],
+    "USDOT": ["USDOT-GCR"],
+    "DOT": ["DOT-FAA-FAA ARG", "DOT-FAA-FAA COE-AJFE", "DOT-FAA-FAA COE-FAA JAMS", "DOT-FAA-FAA COE-TTHP", "DOT-FTA", "DOT-MA", "DOT-NHTSA"],
+    "VA": ["VA-CSHF", "VA-HPGPDP", "VA-NCA", "VA-NCAC", "VA-NVSP", "VA-VLGP"],
+    "NASA": ["NASA", "NASA-HQ"],
+}
 
 
 class OppStatus(str, Enum):
@@ -57,8 +128,10 @@ class SearchGrantsInput(BaseModel):
     agencies: Optional[List[str]] = Field(
         default=None,
         description=(
-            "List of agency codes to filter results (e.g., ['HHS', 'DOE', 'NSF']). "
-            "Use grants_gov_get_filter_options to discover available agency codes."
+            "Agency codes to filter results. Accepts top-level codes (e.g., 'USDA', 'DOE', 'NSF') "
+            "which automatically expand to all sub-agencies, or specific sub-agency codes "
+            "(e.g., 'USDA-NIFA', 'DOE-ARPAE') for narrower filtering. Both can be mixed. "
+            "Note: DOE Office of Science uses top-level code 'PAMS'."
         ),
     )
     opp_statuses: Optional[List[OppStatus]] = Field(
@@ -102,3 +175,32 @@ class SearchGrantsInput(BaseModel):
         default=ResponseFormat.MARKDOWN,
         description="Output format: 'markdown' for human-readable or 'json' for machine-readable structured data.",
     )
+
+    def to_payload(self) -> dict[str, Any]:
+        """Build the JSON payload for a search2 POST request."""
+        payload: dict[str, Any] = {
+            "rows": self.rows,
+            "startRecord": self.start_record,
+        }
+        if self.keyword:
+            payload["keyword"] = self.keyword
+        if self.opp_num:
+            payload["oppNum"] = self.opp_num
+        if self.agencies:
+            codes: list[str] = []
+            seen: set[str] = set()
+            for a in self.agencies:
+                for code in AGENCY_SUBAGENCIES.get(a, [a]):
+                    if code not in seen:
+                        seen.add(code)
+                        codes.append(code)
+            payload["agencies"] = "|".join(codes)
+        if self.opp_statuses:
+            payload["oppStatuses"] = "|".join(s.value for s in self.opp_statuses)
+        if self.eligibilities:
+            payload["eligibilities"] = "|".join(self.eligibilities)
+        if self.funding_categories:
+            payload["fundingCategories"] = "|".join(self.funding_categories)
+        if self.aln:
+            payload["aln"] = self.aln
+        return payload
